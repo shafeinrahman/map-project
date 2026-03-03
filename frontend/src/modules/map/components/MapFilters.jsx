@@ -1,4 +1,4 @@
-export function MapFilters({ businessStatus, onBusinessStatusChange, poiType, onPoiTypeChange }) {
+export function MapFilters({ businessStatus, onBusinessStatusChange }) {
   return (
     <div className="filters-row">
       <label>
@@ -10,6 +10,7 @@ export function MapFilters({ businessStatus, onBusinessStatusChange, poiType, on
         </select>
       </label>
 
+      {/*
       <label>
         POI type contains
         <input
@@ -18,6 +19,7 @@ export function MapFilters({ businessStatus, onBusinessStatusChange, poiType, on
           onChange={(event) => onPoiTypeChange(event.target.value)}
         />
       </label>
+      */}
     </div>
   )
 }

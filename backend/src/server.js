@@ -7,9 +7,6 @@ const env = require('./config/env');
 // Import shared logger for startup messages.
 const logger = require('./config/logger');
 
-// Import env to branch shutdown behavior.
-const env = require('./config/env');
-
 // Import DB helpers for graceful shutdown.
 const db = require('./db/postgres');
 

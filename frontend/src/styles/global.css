@@ -154,6 +154,16 @@ button {
   align-items: center;
 }
 
+.actions-row {
+  display: flex;
+  gap: 8px;
+}
+
+.muted {
+  color: #5f6f86;
+  font-size: 13px;
+}
+
 .toggle-row label {
   display: inline-flex;
   align-items: center;
@@ -212,5 +222,10 @@ button {
 
   .filters-row {
     grid-template-columns: 1fr;
+  }
+
+  .actions-row {
+    width: 100%;
+    justify-content: flex-start;
   }
 }

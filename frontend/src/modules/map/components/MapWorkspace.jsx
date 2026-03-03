@@ -5,6 +5,28 @@ import { useMapGeoData } from '../hooks/useMapGeoData.js'
 
 const businessSourceId = 'businesses'
 const poiSourceId = 'pois'
+const businessLayerId = 'business-points'
+const poiLayerId = 'poi-points'
+
+const createBoundsFromGeoJson = (featureCollection) => {
+  const features = featureCollection?.features || []
+
+  if (features.length === 0) {
+    return null
+  }
+
+  const bounds = new maplibregl.LngLatBounds()
+
+  for (const feature of features) {
+    const [lng, lat] = feature?.geometry?.coordinates || []
+
+    if (Number.isFinite(lng) && Number.isFinite(lat)) {
+      bounds.extend([lng, lat])
+    }
+  }
+
+  return bounds.isEmpty() ? null : bounds
+}
 
 export function MapWorkspace({ token, permissions }) {
   const mapContainerRef = useRef(null)
@@ -12,7 +34,8 @@ export function MapWorkspace({ token, permissions }) {
   const [mapLoaded, setMapLoaded] = useState(false)
 
   const [businessStatus, setBusinessStatus] = useState('all')
-  const [poiType, setPoiType] = useState('')
+  // Search algorithm deferred: POI text-search state intentionally disabled.
+  // const [poiType, setPoiType] = useState('')
   const [showBusinesses, setShowBusinesses] = useState(true)
   const [showPois, setShowPois] = useState(true)
 
@@ -23,13 +46,16 @@ export function MapWorkspace({ token, permissions }) {
     poisGeoJson,
     rawCounts,
     filteredCounts,
+    reload,
+    lastUpdatedAt,
     isLoading,
     error,
   } = useMapGeoData({
     token,
     canRead,
     businessStatus,
-    poiType,
+    // Search algorithm deferred: pass-through search value removed for now.
+    // poiType,
   })
 
   useEffect(() => {
@@ -58,7 +84,7 @@ export function MapWorkspace({ token, permissions }) {
       })
 
       map.addLayer({
-        id: 'business-points',
+        id: businessLayerId,
         type: 'circle',
         source: businessSourceId,
         paint: {
@@ -70,7 +96,7 @@ export function MapWorkspace({ token, permissions }) {
       })
 
       map.addLayer({
-        id: 'poi-points',
+        id: poiLayerId,
         type: 'circle',
         source: poiSourceId,
         paint: {
@@ -79,6 +105,52 @@ export function MapWorkspace({ token, permissions }) {
           'circle-stroke-width': 1,
           'circle-stroke-color': '#ffffff',
         },
+      })
+
+      map.on('click', businessLayerId, (event) => {
+        const feature = event.features?.[0]
+        if (!feature) {
+          return
+        }
+
+        const [lng, lat] = feature.geometry?.coordinates || []
+        const { name, status } = feature.properties || {}
+
+        new maplibregl.Popup({ closeButton: true })
+          .setLngLat([lng, lat])
+          .setHTML(`<strong>${name || 'Business'}</strong><br/>Status: ${status || 'n/a'}`)
+          .addTo(map)
+      })
+
+      map.on('click', poiLayerId, (event) => {
+        const feature = event.features?.[0]
+        if (!feature) {
+          return
+        }
+
+        const [lng, lat] = feature.geometry?.coordinates || []
+        const { poiName, poiType } = feature.properties || {}
+
+        new maplibregl.Popup({ closeButton: true })
+          .setLngLat([lng, lat])
+          .setHTML(`<strong>${poiName || 'POI'}</strong><br/>Type: ${poiType || 'n/a'}`)
+          .addTo(map)
+      })
+
+      map.on('mouseenter', businessLayerId, () => {
+        map.getCanvas().style.cursor = 'pointer'
+      })
+
+      map.on('mouseleave', businessLayerId, () => {
+        map.getCanvas().style.cursor = ''
+      })
+
+      map.on('mouseenter', poiLayerId, () => {
+        map.getCanvas().style.cursor = 'pointer'
+      })
+
+      map.on('mouseleave', poiLayerId, () => {
+        map.getCanvas().style.cursor = ''
       })
 
       setMapLoaded(true)
@@ -112,21 +184,43 @@ export function MapWorkspace({ token, permissions }) {
 
   useEffect(() => {
     const map = mapRef.current
-    if (!map || !map.getLayer('business-points')) {
+    if (!map || !map.getLayer(businessLayerId)) {
       return
     }
 
-    map.setLayoutProperty('business-points', 'visibility', showBusinesses ? 'visible' : 'none')
+    map.setLayoutProperty(businessLayerId, 'visibility', showBusinesses ? 'visible' : 'none')
   }, [showBusinesses])
 
   useEffect(() => {
     const map = mapRef.current
-    if (!map || !map.getLayer('poi-points')) {
+    if (!map || !map.getLayer(poiLayerId)) {
       return
     }
 
-    map.setLayoutProperty('poi-points', 'visibility', showPois ? 'visible' : 'none')
+    map.setLayoutProperty(poiLayerId, 'visibility', showPois ? 'visible' : 'none')
   }, [showPois])
+
+  const fitToVisibleData = () => {
+    const map = mapRef.current
+    if (!map) {
+      return
+    }
+
+    const collections = []
+    if (showBusinesses) {
+      collections.push(businessesGeoJson)
+    }
+    if (showPois) {
+      collections.push(poisGeoJson)
+    }
+
+    const mergedFeatures = collections.flatMap((item) => item.features || [])
+    const bounds = createBoundsFromGeoJson({ type: 'FeatureCollection', features: mergedFeatures })
+
+    if (bounds) {
+      map.fitBounds(bounds, { padding: 60, maxZoom: 15 })
+    }
+  }
 
   const filteredLabel = useMemo(() => {
     return `${filteredCounts.businesses}/${rawCounts.businesses} businesses · ${filteredCounts.pois}/${rawCounts.pois} POIs`
@@ -143,26 +237,43 @@ export function MapWorkspace({ token, permissions }) {
       <MapFilters
         businessStatus={businessStatus}
         onBusinessStatusChange={setBusinessStatus}
-        poiType={poiType}
-        onPoiTypeChange={setPoiType}
+        // Search algorithm deferred: POI text-search props disabled for now.
+        // poiType={poiType}
+        // onPoiTypeChange={setPoiType}
       />
 
-      <div className="toggle-row">
-        <label>
-          <input
-            type="checkbox"
-            checked={showBusinesses}
-            onChange={(event) => setShowBusinesses(event.target.checked)}
-          />
-          Show businesses
-        </label>
-        <label>
-          <input type="checkbox" checked={showPois} onChange={(event) => setShowPois(event.target.checked)} />
-          Show POIs
-        </label>
+      <div className="row-between">
+        <div className="toggle-row">
+          <label>
+            <input
+              type="checkbox"
+              checked={showBusinesses}
+              onChange={(event) => setShowBusinesses(event.target.checked)}
+            />
+            Show businesses
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={showPois}
+              onChange={(event) => setShowPois(event.target.checked)}
+            />
+            Show POIs
+          </label>
+        </div>
+
+        <div className="actions-row">
+          <button type="button" onClick={reload} disabled={!token || !canRead || isLoading}>
+            Reload sources
+          </button>
+          <button type="button" onClick={fitToVisibleData} disabled={isLoading}>
+            Fit to data
+          </button>
+        </div>
       </div>
 
       <p>{filteredLabel}</p>
+      {lastUpdatedAt ? <p className="muted">Last updated: {new Date(lastUpdatedAt).toLocaleString()}</p> : null}
 
       <div className="stats-grid">
         <article className="stat-card">
