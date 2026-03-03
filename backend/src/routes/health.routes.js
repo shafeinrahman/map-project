@@ -10,5 +10,8 @@ const router = express.Router();
 // Health check endpoint used by monitoring and quick manual checks.
 router.get('/', healthController.getHealth);
 
+// Readiness check endpoint for orchestration probes.
+router.get('/readiness', healthController.getReadiness);
+
 // Export router so it can be mounted in route index.
 module.exports = router;

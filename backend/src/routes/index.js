@@ -4,6 +4,7 @@ const express = require('express');
 // Import route modules from feature folders.
 const authRoutes = require('./auth.routes');
 const businessRoutes = require('./business.routes');
+const docsRoutes = require('./docs.routes');
 const healthRoutes = require('./health.routes');
 const poiRoutes = require('./poi.routes');
 
@@ -17,6 +18,9 @@ const featureRoutes = [
 
 	// Health and readiness endpoints.
 	{ path: '/health', handler: healthRoutes },
+
+	// OpenAPI contract and interactive API docs.
+	{ path: '/', handler: docsRoutes },
 
 	// Business CRUD endpoints with RBAC.
 	{ path: '/businesses', handler: businessRoutes },

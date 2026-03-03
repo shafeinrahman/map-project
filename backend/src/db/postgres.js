@@ -27,8 +27,21 @@ const query = (text, params = []) => {
   return pool.query(text, params);
 };
 
+// Check PostgreSQL connectivity using a lightweight query.
+const checkHealth = async () => {
+  const result = await query('SELECT 1 AS ok');
+  return result.rows?.[0]?.ok === 1;
+};
+
+// Close pool connections during graceful shutdown.
+const close = async () => {
+  await pool.end();
+};
+
 // Export db helpers.
 module.exports = {
   pool,
   query,
+  checkHealth,
+  close,
 };

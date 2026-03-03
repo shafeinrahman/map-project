@@ -12,27 +12,31 @@ const createHttpError = (statusCode, message) => {
 };
 
 // POST /api/auth/login
-const login = (req, res, next) => {
+const login = async (req, res, next) => {
   const { email, password } = req.body || {};
 
-  if (!email || !password) {
-    return next(createHttpError(400, 'email and password are required.'));
+  try {
+    if (!email || !password) {
+      return next(createHttpError(400, 'email and password are required.'));
+    }
+
+    const user = await authService.verifyCredentials({ email, password });
+
+    if (!user) {
+      return next(createHttpError(401, 'Invalid credentials.'));
+    }
+
+    const accessToken = authService.createAccessToken(user);
+
+    return res.status(200).json({
+      tokenType: 'Bearer',
+      accessToken,
+      expiresIn: env.jwtExpiresIn,
+      user,
+    });
+  } catch (error) {
+    return next(error);
   }
-
-  const user = authService.verifyCredentials({ email, password });
-
-  if (!user) {
-    return next(createHttpError(401, 'Invalid credentials.'));
-  }
-
-  const accessToken = authService.createAccessToken(user);
-
-  return res.status(200).json({
-    tokenType: 'Bearer',
-    accessToken,
-    expiresIn: env.jwtExpiresIn,
-    user,
-  });
 };
 
 // GET /api/auth/me

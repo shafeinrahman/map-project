@@ -20,7 +20,8 @@ p {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -77,6 +78,20 @@ button {
   padding: 8px 10px;
 }
 
+.form-inline {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.form-inline input,
+.form-inline select {
+  border: 1px solid #c8d5e7;
+  border-radius: 8px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
 .form button,
 .stack-sm button {
   background: #2359d4;
@@ -108,12 +123,94 @@ button {
   gap: 10px;
 }
 
+.row-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.filters-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.filters-row label {
+  display: grid;
+  gap: 4px;
+}
+
+.filters-row input,
+.filters-row select {
+  border: 1px solid #c8d5e7;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.toggle-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.toggle-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.map-canvas {
+  width: 100%;
+  height: 360px;
+  border-radius: 10px;
+  border: 1px solid #d7e1ef;
+  overflow: hidden;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.stat-card {
+  border: 1px solid #e2e8f3;
+  border-radius: 8px;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.stat-card h3 {
+  margin: 0;
+  font-size: 14px;
+  color: #3b4d68;
+}
+
+.stat-card p {
+  font-size: 28px;
+  font-weight: 700;
+}
+
 .error {
   color: #b00020;
 }
 
 @media (max-width: 900px) {
   .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-inline {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filters-row {
     grid-template-columns: 1fr;
   }
 }

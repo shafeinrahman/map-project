@@ -1,8 +1,14 @@
 // Import JWT utility for stateless API authentication.
 const jwt = require('jsonwebtoken');
 
+// Import bcrypt utility for password hash comparison.
+const bcrypt = require('bcryptjs');
+
 // Import runtime auth settings.
 const env = require('../config/env');
+
+// Import selected auth repository.
+const authRepository = require('../repositories/auth');
 
 // Built-in role permission matrix for API authorization checks.
 const rolePermissions = {
@@ -11,46 +17,43 @@ const rolePermissions = {
   viewer: ['business:read', 'poi:read'],
 };
 
-// Bootstrap users for initial RBAC login flow.
-const bootstrapUsers = [
-  {
-    userId: 1,
-    email: String(env.authAdminEmail).trim().toLowerCase(),
-    password: String(env.authAdminPassword),
-    role: 'admin',
-  },
-  {
-    userId: 2,
-    email: String(env.authEditorEmail).trim().toLowerCase(),
-    password: String(env.authEditorPassword),
-    role: 'editor',
-  },
-  {
-    userId: 3,
-    email: String(env.authViewerEmail).trim().toLowerCase(),
-    password: String(env.authViewerPassword),
-    role: 'viewer',
-  },
-];
-
 // Validate login credentials against bootstrap configuration.
-const verifyCredentials = ({ email, password }) => {
+const verifyCredentials = async ({ email, password }) => {
   const normalizedEmail = String(email || '').trim().toLowerCase();
   const normalizedPassword = String(password || '');
 
-  const matched = bootstrapUsers.find(
-    (user) => user.email === normalizedEmail && user.password === normalizedPassword
-  );
+  const matched = await authRepository.findUserByEmail(normalizedEmail);
 
   if (!matched) {
     return null;
   }
 
+  if (String(matched.status || '').toLowerCase() !== 'active') {
+    return null;
+  }
+
+  const isPostgresMode = env.persistenceMode === 'postgres';
+
+  if (isPostgresMode && !matched.passwordHash) {
+    return null;
+  }
+
+  const passwordIsValid = isPostgresMode
+    ? await bcrypt.compare(normalizedPassword, String(matched.passwordHash || ''))
+    : normalizedPassword === String(matched.password || '');
+
+  if (!passwordIsValid) {
+    return null;
+  }
+
+  const normalizedRole = String(matched.role || '').toLowerCase();
+  const permissions = rolePermissions[normalizedRole] || [];
+
   return {
     userId: matched.userId,
     email: matched.email,
-    role: matched.role,
-    permissions: rolePermissions[matched.role] || [],
+    role: normalizedRole,
+    permissions,
   };
 };
 

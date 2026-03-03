@@ -6,7 +6,12 @@ export function AuthPanel({ auth }) {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
-    await auth.login({ email, password })
+
+    try {
+      await auth.login({ email, password })
+    } catch {
+      // Error state is already managed inside useAuth hook.
+    }
   }
 
   return (

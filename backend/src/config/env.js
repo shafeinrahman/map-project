@@ -13,6 +13,13 @@ const normalizePort = (value, fallback) => {
   return isValidPort ? parsed : fallback;
 };
 
+// Normalize and validate a positive integer from env/user input.
+const normalizePositiveInteger = (value, fallback) => {
+  const parsed = Number(value);
+  const isValid = Number.isInteger(parsed) && parsed > 0;
+  return isValid ? parsed : fallback;
+};
+
 // Build a centralized config object for runtime values.
 const env = {
   // API server port with validation and a safe local default.
@@ -43,6 +50,27 @@ const env = {
 
   // Access token lifetime returned after successful login.
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '8h',
+
+  // BCrypt rounds used when generating password hashes.
+  authBcryptRounds: normalizePositiveInteger(process.env.AUTH_BCRYPT_ROUNDS, 10),
+
+  // Global API rate limit window in milliseconds.
+  apiRateLimitWindowMs: normalizePositiveInteger(
+    process.env.API_RATE_LIMIT_WINDOW_MS,
+    15 * 60 * 1000
+  ),
+
+  // Global API max requests per window per client.
+  apiRateLimitMax: normalizePositiveInteger(process.env.API_RATE_LIMIT_MAX, 1000),
+
+  // Authentication endpoint rate limit window in milliseconds.
+  authRateLimitWindowMs: normalizePositiveInteger(
+    process.env.AUTH_RATE_LIMIT_WINDOW_MS,
+    15 * 60 * 1000
+  ),
+
+  // Authentication endpoint max requests per window per client.
+  authRateLimitMax: normalizePositiveInteger(process.env.AUTH_RATE_LIMIT_MAX, 20),
 
   // Bootstrap admin credentials for initial API authentication flow.
   authAdminEmail: process.env.AUTH_ADMIN_EMAIL || 'admin@internal-maps.local',

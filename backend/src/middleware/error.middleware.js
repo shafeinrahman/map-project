@@ -9,11 +9,20 @@ const errorHandler = (err, req, res, next) => {
   // Mark next as intentionally unused for Express middleware signature compatibility.
   void next;
 
-  // Log stack/details for debugging in server logs.
-  logger.error('Unhandled error:', err);
-
   // Respect explicit status codes from upstream handlers when available.
   const statusCode = Number.isInteger(err?.statusCode) ? err.statusCode : 500;
+
+  // Log expected 4xx errors at info level and 5xx at error level.
+  if (statusCode >= 500) {
+    logger.error('Unhandled error:', err);
+  } else {
+    logger.info('Handled request error:', {
+      statusCode,
+      message: err?.message,
+      method: req.method,
+      path: req.originalUrl,
+    });
+  }
 
   // Use safe message defaults; expose internal details only outside production.
   const message =
@@ -21,6 +30,7 @@ const errorHandler = (err, req, res, next) => {
 
   // Build consistent API error payload.
   const payload = {
+    code: err?.code || 'INTERNAL_ERROR',
     error: message,
   };
 

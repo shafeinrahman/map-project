@@ -8,6 +8,9 @@ const apiRoutes = require('./routes');
 // Import runtime config shared across modules.
 const env = require('./config/env');
 
+// Import API-wide rate limiter middleware.
+const { apiRateLimiter } = require('./middleware/rate-limit.middleware');
+
 // Import centralized middleware.
 const { errorHandler, notFoundHandler } = require('./middleware/error.middleware');
 
@@ -30,7 +33,7 @@ app.get('/', (req, res) => {
 });
 
 // Mount all API routes under /api.
-app.use(env.apiPrefix, apiRoutes);
+app.use(env.apiPrefix, apiRateLimiter, apiRoutes);
 
 // Handle unmatched routes after route registration.
 app.use(notFoundHandler);
