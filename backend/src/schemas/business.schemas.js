@@ -13,6 +13,7 @@ const businessListQuerySchema = z.object({
   categoryId: z.coerce.number().int().positive().optional(),
   routeId: z.coerce.number().int().positive().optional(),
   territoryId: z.coerce.number().int().positive().optional(),
+  zoom: z.coerce.number().min(0).max(22).optional(),
   minLat: z.coerce.number().min(-90).max(90).optional(),
   maxLat: z.coerce.number().min(-90).max(90).optional(),
   minLng: z.coerce.number().min(-180).max(180).optional(),

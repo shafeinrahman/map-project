@@ -4,6 +4,9 @@ const poiRepository = require('../repositories/poi');
 // Return paginated POIs that match optional filters.
 const listPois = async (filters = {}) => poiRepository.listPois(filters);
 
+// Return map-oriented POIs with zoom-aware aggregation.
+const listPoisForMap = async (filters = {}) => poiRepository.listPoisForMap(filters);
+
 // Return one POI by identifier.
 const getPoiById = async (poiId) => poiRepository.getPoiById(poiId);
 
@@ -27,6 +30,8 @@ const toGeoJson = (pois) => {
         coordinates: [poi.longitude, poi.latitude],
       },
       properties: {
+        isCluster: Number(poi.clusterCount) > 1,
+        clusterCount: Number(poi.clusterCount) > 1 ? Number(poi.clusterCount) : undefined,
         poiId: poi.poiId,
         poiType: poi.poiType,
         poiName: poi.poiName,
@@ -41,6 +46,7 @@ const toGeoJson = (pois) => {
 // Export POI service operations.
 module.exports = {
   listPois,
+  listPoisForMap,
   getPoiById,
   createPoi,
   updatePoi,

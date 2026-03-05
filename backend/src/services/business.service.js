@@ -4,6 +4,9 @@ const businessRepository = require('../repositories/business');
 // Return filtered and paginated businesses.
 const listBusinesses = async (filters = {}) => businessRepository.listBusinesses(filters);
 
+// Return map-oriented businesses with zoom-aware aggregation.
+const listBusinessesForMap = async (filters = {}) => businessRepository.listBusinessesForMap(filters);
+
 // Find one business by identifier.
 const getBusinessById = async (businessId) => businessRepository.getBusinessById(businessId);
 
@@ -29,6 +32,8 @@ const toGeoJson = (businesses) => {
         coordinates: [business.longitude, business.latitude],
       },
       properties: {
+        isCluster: Number(business.clusterCount) > 1,
+        clusterCount: Number(business.clusterCount) > 1 ? Number(business.clusterCount) : undefined,
         businessId: business.businessId,
         name: business.name,
         status: business.status,
@@ -45,6 +50,7 @@ const toGeoJson = (businesses) => {
 // Export Business service operations.
 module.exports = {
   listBusinesses,
+  listBusinessesForMap,
   getBusinessById,
   createBusiness,
   updateBusiness,

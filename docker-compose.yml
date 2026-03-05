@@ -1,0 +1,58 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: internal-maps-db
+    environment:
+      POSTGRES_USER: badmin
+      POSTGRES_PASSWORD: dummy
+      POSTGRES_DB: internal_maps
+    ports:
+      - "55432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/postgres_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U badmin -d internal_maps"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+    container_name: internal-maps-backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      API_PREFIX: /api
+      API_RATE_LIMIT_WINDOW_MS: 60000
+      API_RATE_LIMIT_MAX: 200000
+      AUTH_RATE_LIMIT_WINDOW_MS: 60000
+      AUTH_RATE_LIMIT_MAX: 5000
+      PERSISTENCE_MODE: postgres
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: badmin
+      DB_PASSWORD: dummy
+      DB_NAME: internal_maps
+      JWT_SECRET: local-dev-jwt-secret
+      JWT_EXPIRES_IN: 8h
+    ports:
+      - "5000:5000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: http://localhost:5000/api
+    container_name: internal-maps-frontend
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
+volumes:
+  pgdata:

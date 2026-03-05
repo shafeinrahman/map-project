@@ -1,7 +1,45 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { authApi } from '../../../shared/services/api/authApi'
 
 const TOKEN_STORAGE_KEY = 'internalMaps.accessToken'
+const PROFILE_STORAGE_KEY = 'internalMaps.userProfiles'
+
+const readProfiles = () => {
+  try {
+    const raw = localStorage.getItem(PROFILE_STORAGE_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+
+const writeProfiles = (profiles) => {
+  localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles))
+}
+
+const normalizeDisplayName = (value, fallbackEmail) => {
+  const trimmed = String(value || '').trim()
+
+  if (trimmed) {
+    return trimmed
+  }
+
+  return String(fallbackEmail || '').split('@')[0] || 'User'
+}
+
+const enrichUserProfile = (user) => {
+  if (!user) {
+    return null
+  }
+
+  const profiles = readProfiles()
+  const profile = profiles[user.userId] || {}
+
+  return {
+    ...user,
+    displayName: normalizeDisplayName(profile.displayName, user.email),
+  }
+}
 
 export function useAuth() {
   const [token, setToken] = useState(localStorage.getItem(TOKEN_STORAGE_KEY) || '')
@@ -24,7 +62,7 @@ export function useAuth() {
       try {
         const response = await authApi.me(token)
         if (!cancelled) {
-          setUser(response.user)
+          setUser(enrichUserProfile(response.user))
         }
       } catch (requestError) {
         if (!cancelled) {
@@ -47,7 +85,7 @@ export function useAuth() {
     }
   }, [token])
 
-  const login = async ({ email, password }) => {
+  const login = useCallback(async ({ email, password }) => {
     setIsLoading(true)
     setError('')
 
@@ -55,21 +93,45 @@ export function useAuth() {
       const response = await authApi.login({ email, password })
       localStorage.setItem(TOKEN_STORAGE_KEY, response.accessToken)
       setToken(response.accessToken)
-      setUser(response.user)
+      setUser(enrichUserProfile(response.user))
     } catch (requestError) {
       setError(requestError.message)
       throw requestError
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_STORAGE_KEY)
     setToken('')
     setUser(null)
     setError('')
-  }
+  }, [])
+
+  const updateProfile = useCallback((updates) => {
+    if (!user) {
+      return
+    }
+
+    const nextDisplayName = normalizeDisplayName(updates?.displayName, user.email)
+    const nextProfiles = {
+      ...readProfiles(),
+      [user.userId]: {
+        displayName: nextDisplayName,
+      },
+    }
+
+    writeProfiles(nextProfiles)
+    setUser((previousUser) =>
+      previousUser
+        ? {
+            ...previousUser,
+            displayName: nextDisplayName,
+          }
+        : previousUser,
+    )
+  }, [user])
 
   return useMemo(
     () => ({
@@ -80,7 +142,8 @@ export function useAuth() {
       isAuthenticated: Boolean(token && user),
       login,
       logout,
+      updateProfile,
     }),
-    [token, user, isLoading, error],
+    [token, user, isLoading, error, login, logout, updateProfile],
   )
 }

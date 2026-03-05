@@ -11,6 +11,24 @@ const toFiniteNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const MAP_ZOOM_BANDS = [
+  { minZoom: 0, maxZoom: 4, mode: 'cluster', label: 'very_coarse', cellSize: 1.2, defaultLimit: 6000 },
+  { minZoom: 5, maxZoom: 9, mode: 'cluster', label: 'coarse_medium', cellSize: 0.4, defaultLimit: 7000 },
+  { minZoom: 10, maxZoom: 14, mode: 'cluster', label: 'fine', cellSize: 0.1, defaultLimit: 9000 },
+  { minZoom: 15, maxZoom: 15, mode: 'cluster', label: 'fine_plus', cellSize: 0.03, defaultLimit: 12000 },
+  { minZoom: 16, maxZoom: 22, mode: 'raw', label: 'raw_points', cellSize: null, defaultLimit: 5000 },
+];
+
+const getMapZoomBand = (zoom) => {
+  const normalizedZoom = Number.isFinite(Number(zoom)) ? Number(zoom) : 0;
+
+  return (
+    MAP_ZOOM_BANDS.find(
+      (band) => normalizedZoom >= band.minZoom && normalizedZoom <= band.maxZoom
+    ) || MAP_ZOOM_BANDS[0]
+  );
+};
+
 // Convert a DB row to API business shape.
 const mapBusinessRow = (row) => {
   if (!row) {
@@ -83,6 +101,14 @@ const buildWhereClause = (filters = {}) => {
   return { whereClause, params };
 };
 
+const withCoordinateClause = (whereClause) => {
+  if (!whereClause) {
+    return 'WHERE latitude IS NOT NULL AND longitude IS NOT NULL';
+  }
+
+  return `${whereClause} AND latitude IS NOT NULL AND longitude IS NOT NULL`;
+};
+
 // Return filtered and paginated businesses.
 const listBusinesses = async ({
   status,
@@ -150,6 +176,173 @@ const listBusinesses = async ({
       total: totalResult.rows[0]?.total || 0,
       limit: sanitizedLimit,
       offset: sanitizedOffset,
+    },
+  };
+};
+
+// Return map-oriented business data with zoom-aware clustering.
+const listBusinessesForMap = async ({
+  status,
+  categoryId,
+  routeId,
+  territoryId,
+  minLat,
+  maxLat,
+  minLng,
+  maxLng,
+  zoom = 0,
+  limit,
+  offset = 0,
+} = {}) => {
+  const zoomBand = getMapZoomBand(zoom);
+  const requestedLimit = Number(limit);
+  const requestedOffset = Number(offset);
+
+  const sanitizedLimit = Math.max(
+    1,
+    Math.min(
+      zoomBand.defaultLimit,
+      Number.isFinite(requestedLimit) ? Math.trunc(requestedLimit) : zoomBand.defaultLimit
+    )
+  );
+  const sanitizedOffset = Math.max(0, Number.isFinite(requestedOffset) ? Math.trunc(requestedOffset) : 0);
+
+  const { whereClause, params } = buildWhereClause({
+    status,
+    categoryId,
+    routeId,
+    territoryId,
+    minLat,
+    maxLat,
+    minLng,
+    maxLng,
+  });
+
+  const mapWhereClause = withCoordinateClause(whereClause);
+
+  if (zoomBand.mode === 'raw') {
+    const totalResult = await db.query(
+      `SELECT COUNT(*)::int AS total FROM business ${mapWhereClause}`,
+      params
+    );
+
+    const listParams = [...params, sanitizedLimit, sanitizedOffset];
+    const listResult = await db.query(
+      `
+        SELECT
+          business_id,
+          name,
+          status,
+          updated_at,
+          latitude,
+          longitude
+        FROM business
+        ${mapWhereClause}
+        ORDER BY business_id ASC
+        LIMIT $${params.length + 1}
+        OFFSET $${params.length + 2}
+      `,
+      listParams
+    );
+
+    return {
+      items: listResult.rows.map((row) => ({
+        businessId: Number(row.business_id),
+        name: row.name,
+        status: row.status,
+        updatedAt: row.updated_at,
+        latitude: toFiniteNumber(row.latitude),
+        longitude: toFiniteNumber(row.longitude),
+      })),
+      pagination: {
+        total: totalResult.rows[0]?.total || 0,
+        limit: sanitizedLimit,
+        offset: sanitizedOffset,
+      },
+      mapMeta: {
+        zoom: Number(zoom),
+        aggregation: zoomBand.label,
+        cellSize: null,
+      },
+    };
+  }
+
+  const cellSizeParamIndex = params.length + 1;
+  const groupedCountResult = await db.query(
+    `
+      SELECT COUNT(*)::int AS total
+      FROM (
+        SELECT
+          FLOOR(latitude / $${cellSizeParamIndex}),
+          FLOOR(longitude / $${cellSizeParamIndex})
+        FROM business
+        ${mapWhereClause}
+        GROUP BY 1, 2
+      ) grouped
+    `,
+    [...params, zoomBand.cellSize]
+  );
+
+  const listParams = [...params, zoomBand.cellSize, sanitizedLimit, sanitizedOffset];
+  const listResult = await db.query(
+    `
+      WITH filtered AS (
+        SELECT
+          business_id,
+          name,
+          status,
+          updated_at,
+          latitude,
+          longitude
+        FROM business
+        ${mapWhereClause}
+      ),
+      clustered AS (
+        SELECT
+          FLOOR(latitude / $${params.length + 1}) * $${params.length + 1} + ($${params.length + 1} / 2.0) AS cluster_lat,
+          FLOOR(longitude / $${params.length + 1}) * $${params.length + 1} + ($${params.length + 1} / 2.0) AS cluster_lng,
+          COUNT(*)::int AS cluster_count,
+          MIN(business_id) AS sample_business_id,
+          MAX(updated_at) AS last_updated_at
+        FROM filtered
+        GROUP BY 1, 2
+      )
+      SELECT
+        c.cluster_lng AS longitude,
+        c.cluster_lat AS latitude,
+        c.cluster_count,
+        c.last_updated_at,
+        b.business_id,
+        b.name,
+        b.status
+      FROM clustered c
+      LEFT JOIN business b ON b.business_id = c.sample_business_id
+      ORDER BY c.cluster_count DESC, c.cluster_lat ASC, c.cluster_lng ASC
+      LIMIT $${params.length + 2}
+      OFFSET $${params.length + 3}
+    `,
+    listParams
+  );
+
+  return {
+    items: listResult.rows.map((row) => ({
+      businessId: Number(row.business_id),
+      name: row.name,
+      status: row.status,
+      updatedAt: row.last_updated_at,
+      latitude: toFiniteNumber(row.latitude),
+      longitude: toFiniteNumber(row.longitude),
+      clusterCount: Number(row.cluster_count),
+    })),
+    pagination: {
+      total: groupedCountResult.rows[0]?.total || 0,
+      limit: sanitizedLimit,
+      offset: sanitizedOffset,
+    },
+    mapMeta: {
+      zoom: Number(zoom),
+      aggregation: zoomBand.label,
+      cellSize: zoomBand.cellSize,
     },
   };
 };
@@ -333,6 +526,7 @@ const deleteBusiness = async (businessId) => {
 // Export postgres repository methods.
 module.exports = {
   listBusinesses,
+  listBusinessesForMap,
   getBusinessById,
   createBusiness,
   updateBusiness,

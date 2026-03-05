@@ -32,6 +32,13 @@ export function MapWorkspace({ token, permissions }) {
   const mapContainerRef = useRef(null)
   const mapRef = useRef(null)
   const [mapLoaded, setMapLoaded] = useState(false)
+  const [viewport, setViewport] = useState({
+    zoom: 9,
+    minLat: undefined,
+    maxLat: undefined,
+    minLng: undefined,
+    maxLng: undefined,
+  })
 
   const [businessStatus, setBusinessStatus] = useState('all')
   // Search algorithm deferred: POI text-search state intentionally disabled.
@@ -54,6 +61,7 @@ export function MapWorkspace({ token, permissions }) {
     token,
     canRead,
     businessStatus,
+    viewport,
     // Search algorithm deferred: pass-through search value removed for now.
     // poiType,
   })
@@ -66,7 +74,7 @@ export function MapWorkspace({ token, permissions }) {
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: 'https://demotiles.maplibre.org/style.json',
-      center: [32.58, 0.35],
+      center: [90.4048, 23.7700],
       zoom: 9,
     })
 
@@ -88,9 +96,14 @@ export function MapWorkspace({ token, permissions }) {
         type: 'circle',
         source: businessSourceId,
         paint: {
-          'circle-radius': 6,
+          'circle-radius': [
+            'case',
+            ['has', 'clusterCount'],
+            ['interpolate', ['linear'], ['get', 'clusterCount'], 2, 8, 20, 16, 100, 24],
+            6,
+          ],
           'circle-color': '#2563eb',
-          'circle-stroke-width': 1,
+          'circle-stroke-width': ['case', ['has', 'clusterCount'], 2, 1],
           'circle-stroke-color': '#ffffff',
         },
       })
@@ -100,9 +113,14 @@ export function MapWorkspace({ token, permissions }) {
         type: 'circle',
         source: poiSourceId,
         paint: {
-          'circle-radius': 5,
+          'circle-radius': [
+            'case',
+            ['has', 'clusterCount'],
+            ['interpolate', ['linear'], ['get', 'clusterCount'], 2, 7, 20, 14, 100, 22],
+            5,
+          ],
           'circle-color': '#f97316',
-          'circle-stroke-width': 1,
+          'circle-stroke-width': ['case', ['has', 'clusterCount'], 2, 1],
           'circle-stroke-color': '#ffffff',
         },
       })
@@ -114,7 +132,15 @@ export function MapWorkspace({ token, permissions }) {
         }
 
         const [lng, lat] = feature.geometry?.coordinates || []
-        const { name, status } = feature.properties || {}
+        const { name, status, clusterCount } = feature.properties || {}
+
+        if (Number(clusterCount) > 1) {
+          new maplibregl.Popup({ closeButton: true })
+            .setLngLat([lng, lat])
+            .setHTML(`<strong>Business cluster</strong><br/>Count: ${Number(clusterCount)}`)
+            .addTo(map)
+          return
+        }
 
         new maplibregl.Popup({ closeButton: true })
           .setLngLat([lng, lat])
@@ -129,7 +155,15 @@ export function MapWorkspace({ token, permissions }) {
         }
 
         const [lng, lat] = feature.geometry?.coordinates || []
-        const { poiName, poiType } = feature.properties || {}
+        const { poiName, poiType, clusterCount } = feature.properties || {}
+
+        if (Number(clusterCount) > 1) {
+          new maplibregl.Popup({ closeButton: true })
+            .setLngLat([lng, lat])
+            .setHTML(`<strong>POI cluster</strong><br/>Count: ${Number(clusterCount)}`)
+            .addTo(map)
+          return
+        }
 
         new maplibregl.Popup({ closeButton: true })
           .setLngLat([lng, lat])
@@ -152,6 +186,27 @@ export function MapWorkspace({ token, permissions }) {
       map.on('mouseleave', poiLayerId, () => {
         map.getCanvas().style.cursor = ''
       })
+
+      const updateViewport = () => {
+        const bounds = map.getBounds()
+        const zoom = map.getZoom()
+
+        if (!bounds) {
+          return
+        }
+
+        setViewport({
+          zoom,
+          minLat: bounds.getSouth(),
+          maxLat: bounds.getNorth(),
+          minLng: bounds.getWest(),
+          maxLng: bounds.getEast(),
+        })
+      }
+
+      updateViewport()
+      map.on('moveend', updateViewport)
+      map.on('zoomend', updateViewport)
 
       setMapLoaded(true)
     })

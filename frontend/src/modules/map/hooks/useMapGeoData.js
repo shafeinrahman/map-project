@@ -7,56 +7,6 @@ const emptyFeatureCollection = {
   features: [],
 }
 
-const mergeFeatureCollections = (collections) => {
-  return {
-    type: 'FeatureCollection',
-    features: collections.flatMap((collection) => collection?.features || []),
-  }
-}
-
-const fetchAllGeoJsonPages = async (loadPage, token) => {
-  const pageLimit = 500
-  let offset = 0
-  let total = null
-  const pages = []
-
-  while (true) {
-    const response = await loadPage(token, { limit: pageLimit, offset })
-    pages.push(response)
-
-    const currentFeatures = response?.features || []
-    const pagination = response?.pagination || {}
-    const responseLimit = Number(pagination.limit) || pageLimit
-    const responseOffset = Number(pagination.offset)
-
-    if (total === null) {
-      const responseTotal = Number(pagination.total)
-      total = Number.isFinite(responseTotal) ? responseTotal : null
-    }
-
-    if (currentFeatures.length === 0) {
-      break
-    }
-
-    if (total !== null) {
-      const nextOffset = (Number.isFinite(responseOffset) ? responseOffset : offset) + responseLimit
-      if (nextOffset >= total) {
-        break
-      }
-      offset = nextOffset
-      continue
-    }
-
-    if (currentFeatures.length < responseLimit) {
-      break
-    }
-
-    offset += responseLimit
-  }
-
-  return mergeFeatureCollections(pages)
-}
-
 const filterBusinessFeatures = (features, businessStatus) => {
   if (businessStatus === 'all') {
     return features
@@ -79,7 +29,7 @@ const filterPoiFeatures = (features, poiType) => {
 }
 */
 
-export function useMapGeoData({ token, canRead, businessStatus }) {
+export function useMapGeoData({ token, canRead, businessStatus, viewport }) {
   const [rawBusinesses, setRawBusinesses] = useState(emptyFeatureCollection)
   const [rawPois, setRawPois] = useState(emptyFeatureCollection)
   const [isLoading, setIsLoading] = useState(false)
@@ -92,9 +42,19 @@ export function useMapGeoData({ token, canRead, businessStatus }) {
   }
 
   useEffect(() => {
+    const hasViewportBounds =
+      Number.isFinite(viewport?.minLat) &&
+      Number.isFinite(viewport?.maxLat) &&
+      Number.isFinite(viewport?.minLng) &&
+      Number.isFinite(viewport?.maxLng)
+
     if (!token || !canRead) {
       setRawBusinesses(emptyFeatureCollection)
       setRawPois(emptyFeatureCollection)
+      return
+    }
+
+    if (!hasViewportBounds) {
       return
     }
 
@@ -105,9 +65,27 @@ export function useMapGeoData({ token, canRead, businessStatus }) {
       setError('')
 
       try {
+        const boundsQuery = {
+          minLat: viewport?.minLat,
+          maxLat: viewport?.maxLat,
+          minLng: viewport?.minLng,
+          maxLng: viewport?.maxLng,
+        }
+
+        const businessQuery = {
+          ...boundsQuery,
+          zoom: viewport?.zoom,
+          status: businessStatus === 'all' ? undefined : businessStatus,
+        }
+
+        const poiQuery = {
+          ...boundsQuery,
+          zoom: viewport?.zoom,
+        }
+
         const [businessesGeo, poisGeo] = await Promise.all([
-          fetchAllGeoJsonPages(businessApi.listGeoJson, token),
-          fetchAllGeoJsonPages(poiApi.listGeoJson, token),
+          businessApi.listGeoJson(token, businessQuery),
+          poiApi.listGeoJson(token, poiQuery),
         ])
 
         if (!cancelled) {
@@ -131,7 +109,7 @@ export function useMapGeoData({ token, canRead, businessStatus }) {
     return () => {
       cancelled = true
     }
-  }, [token, canRead, reloadKey])
+  }, [token, canRead, reloadKey, viewport, businessStatus])
 
   const filteredBusinesses = useMemo(() => {
     return {

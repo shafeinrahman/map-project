@@ -59,12 +59,13 @@ const listBusinesses = async (req, res) => {
 
 // GET /api/businesses/geojson
 const listBusinessesGeoJson = async (req, res) => {
-  const result = await businessService.listBusinesses(req.query);
+  const result = await businessService.listBusinessesForMap(req.query);
   const featureCollection = businessService.toGeoJson(result.items);
 
   return res.status(200).json({
     ...featureCollection,
     pagination: result.pagination,
+    mapMeta: result.mapMeta,
   });
 };
 

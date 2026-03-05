@@ -63,12 +63,13 @@ const listPois = async (req, res) => {
 
 // GET /api/pois/geojson
 const listPoisGeoJson = async (req, res) => {
-  const result = await poiService.listPois(req.query);
+  const result = await poiService.listPoisForMap(req.query);
   const featureCollection = poiService.toGeoJson(result.items);
 
   res.status(200).json({
     ...featureCollection,
     pagination: result.pagination,
+    mapMeta: result.mapMeta,
   });
 };
 

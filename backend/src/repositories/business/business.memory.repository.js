@@ -10,6 +10,24 @@ const toFiniteNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const MAP_ZOOM_BANDS = [
+  { minZoom: 0, maxZoom: 4, mode: 'cluster', label: 'very_coarse', cellSize: 1.2, defaultLimit: 6000 },
+  { minZoom: 5, maxZoom: 9, mode: 'cluster', label: 'coarse_medium', cellSize: 0.4, defaultLimit: 7000 },
+  { minZoom: 10, maxZoom: 14, mode: 'cluster', label: 'fine', cellSize: 0.1, defaultLimit: 9000 },
+  { minZoom: 15, maxZoom: 15, mode: 'cluster', label: 'fine_plus', cellSize: 0.03, defaultLimit: 12000 },
+  { minZoom: 16, maxZoom: 22, mode: 'raw', label: 'raw_points', cellSize: null, defaultLimit: 5000 },
+];
+
+const getMapZoomBand = (zoom) => {
+  const normalizedZoom = Number.isFinite(Number(zoom)) ? Number(zoom) : 0;
+
+  return (
+    MAP_ZOOM_BANDS.find(
+      (band) => normalizedZoom >= band.minZoom && normalizedZoom <= band.maxZoom
+    ) || MAP_ZOOM_BANDS[0]
+  );
+};
+
 // Build one normalized business record from input payload.
 const buildBusinessRecord = ({
   name,
@@ -135,6 +153,144 @@ const listBusinesses = async ({
   };
 };
 
+// Return map-oriented business data with zoom-aware clustering.
+const listBusinessesForMap = async ({
+  status,
+  categoryId,
+  routeId,
+  territoryId,
+  minLat,
+  maxLat,
+  minLng,
+  maxLng,
+  zoom = 0,
+  limit,
+  offset = 0,
+} = {}) => {
+  const zoomBand = getMapZoomBand(zoom);
+  const requestedLimit = Number(limit);
+  const requestedOffset = Number(offset);
+
+  const sanitizedLimit = Math.max(
+    1,
+    Math.min(
+      zoomBand.defaultLimit,
+      Number.isFinite(requestedLimit) ? Math.trunc(requestedLimit) : zoomBand.defaultLimit
+    )
+  );
+  const sanitizedOffset = Math.max(0, Number.isFinite(requestedOffset) ? Math.trunc(requestedOffset) : 0);
+
+  const normalizedFilters = {
+    status: status ? String(status).trim().toLowerCase() : null,
+    categoryId: categoryId == null ? null : toFiniteNumber(categoryId),
+    routeId: routeId == null ? null : toFiniteNumber(routeId),
+    territoryId: territoryId == null ? null : toFiniteNumber(territoryId),
+    minLat: minLat == null ? null : toFiniteNumber(minLat),
+    maxLat: maxLat == null ? null : toFiniteNumber(maxLat),
+    minLng: minLng == null ? null : toFiniteNumber(minLng),
+    maxLng: maxLng == null ? null : toFiniteNumber(maxLng),
+  };
+
+  const filtered = Array.from(businessStore.values()).filter(
+    (business) =>
+      Number.isFinite(business.latitude) &&
+      Number.isFinite(business.longitude) &&
+      matchesFilters(business, normalizedFilters)
+  );
+
+  if (zoomBand.mode === 'raw') {
+    const items = filtered
+      .sort((left, right) => left.businessId - right.businessId)
+      .slice(sanitizedOffset, sanitizedOffset + sanitizedLimit)
+      .map((business) => ({
+        businessId: business.businessId,
+        name: business.name,
+        status: business.status,
+        updatedAt: business.updatedAt,
+        latitude: business.latitude,
+        longitude: business.longitude,
+      }));
+
+    return {
+      items,
+      pagination: {
+        total: filtered.length,
+        limit: sanitizedLimit,
+        offset: sanitizedOffset,
+      },
+      mapMeta: {
+        zoom: Number(zoom),
+        aggregation: zoomBand.label,
+        cellSize: null,
+      },
+    };
+  }
+
+  const grouped = new Map();
+
+  for (const business of filtered) {
+    const latBucket = Math.floor(business.latitude / zoomBand.cellSize);
+    const lngBucket = Math.floor(business.longitude / zoomBand.cellSize);
+    const key = `${latBucket}:${lngBucket}`;
+
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        latitude: latBucket * zoomBand.cellSize + zoomBand.cellSize / 2,
+        longitude: lngBucket * zoomBand.cellSize + zoomBand.cellSize / 2,
+        clusterCount: 0,
+        sampleBusinessId: business.businessId,
+        sampleName: business.name,
+        sampleStatus: business.status,
+        lastUpdatedAt: business.updatedAt,
+      });
+    }
+
+    const entry = grouped.get(key);
+    entry.clusterCount += 1;
+
+    if (business.updatedAt && (!entry.lastUpdatedAt || business.updatedAt > entry.lastUpdatedAt)) {
+      entry.lastUpdatedAt = business.updatedAt;
+    }
+  }
+
+  const clusters = Array.from(grouped.values())
+    .sort((left, right) => {
+      if (right.clusterCount !== left.clusterCount) {
+        return right.clusterCount - left.clusterCount;
+      }
+
+      if (left.latitude !== right.latitude) {
+        return left.latitude - right.latitude;
+      }
+
+      return left.longitude - right.longitude;
+    })
+    .slice(sanitizedOffset, sanitizedOffset + sanitizedLimit)
+    .map((entry) => ({
+      businessId: entry.sampleBusinessId,
+      name: entry.sampleName,
+      status: entry.sampleStatus,
+      updatedAt: entry.lastUpdatedAt,
+      latitude: entry.latitude,
+      longitude: entry.longitude,
+      clusterCount: entry.clusterCount,
+    }));
+
+  return {
+    items: clusters,
+    pagination: {
+      total: grouped.size,
+      limit: sanitizedLimit,
+      offset: sanitizedOffset,
+    },
+    mapMeta: {
+      zoom: Number(zoom),
+      aggregation: zoomBand.label,
+      cellSize: zoomBand.cellSize,
+    },
+  };
+};
+
 // Find one business by identifier.
 const getBusinessById = async (businessId) => {
   const numericBusinessId = Number(businessId);
@@ -184,6 +340,7 @@ const deleteBusiness = async (businessId) => {
 // Export memory repository methods.
 module.exports = {
   listBusinesses,
+  listBusinessesForMap,
   getBusinessById,
   createBusiness,
   updateBusiness,
