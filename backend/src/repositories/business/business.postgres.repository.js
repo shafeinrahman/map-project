@@ -12,11 +12,10 @@ const toFiniteNumber = (value) => {
 };
 
 const MAP_ZOOM_BANDS = [
-  { minZoom: 0, maxZoom: 4, mode: 'cluster', label: 'very_coarse', cellSize: 1.2, defaultLimit: 6000 },
-  { minZoom: 5, maxZoom: 9, mode: 'cluster', label: 'coarse_medium', cellSize: 0.4, defaultLimit: 7000 },
-  { minZoom: 10, maxZoom: 14, mode: 'cluster', label: 'fine', cellSize: 0.1, defaultLimit: 9000 },
-  { minZoom: 15, maxZoom: 15, mode: 'cluster', label: 'fine_plus', cellSize: 0.03, defaultLimit: 12000 },
-  { minZoom: 16, maxZoom: 22, mode: 'raw', label: 'raw_points', cellSize: null, defaultLimit: 5000 },
+  { minZoom: 0, maxZoom: 5, mode: 'cluster', label: 'very_coarse', cellSize: 1.2, defaultLimit: 6000 },
+  { minZoom: 6, maxZoom: 10, mode: 'cluster', label: 'coarse_medium', cellSize: 0.4, defaultLimit: 7000 },
+  { minZoom: 11, maxZoom: 15, mode: 'cluster', label: 'fine', cellSize: 0.1, defaultLimit: 9000 },
+  { minZoom: 16, maxZoom: 18, mode: 'raw', label: 'raw_points', cellSize: null, defaultLimit: 5000 },
 ];
 
 const getMapZoomBand = (zoom) => {
@@ -299,17 +298,17 @@ const listBusinessesForMap = async ({
       ),
       clustered AS (
         SELECT
-          FLOOR(latitude / $${params.length + 1}) * $${params.length + 1} + ($${params.length + 1} / 2.0) AS cluster_lat,
-          FLOOR(longitude / $${params.length + 1}) * $${params.length + 1} + ($${params.length + 1} / 2.0) AS cluster_lng,
+          AVG(latitude) AS cluster_lat,
+          AVG(longitude) AS cluster_lng,
           COUNT(*)::int AS cluster_count,
           MIN(business_id) AS sample_business_id,
           MAX(updated_at) AS last_updated_at
         FROM filtered
-        GROUP BY 1, 2
+        GROUP BY FLOOR(latitude / $${params.length + 1}), FLOOR(longitude / $${params.length + 1})
       )
       SELECT
-        c.cluster_lng AS longitude,
-        c.cluster_lat AS latitude,
+        COALESCE(b.longitude, c.cluster_lng) AS longitude,
+        COALESCE(b.latitude, c.cluster_lat) AS latitude,
         c.cluster_count,
         c.last_updated_at,
         b.business_id,

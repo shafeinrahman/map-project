@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import { MapFilters } from './MapFilters.jsx'
 import { useMapGeoData } from '../hooks/useMapGeoData.js'
+import { categoryApi } from '../../../shared/services/api/categoryApi'
 
 const businessSourceId = 'businesses'
 const poiSourceId = 'pois'
@@ -41,6 +42,8 @@ export function MapWorkspace({ token, permissions }) {
   })
 
   const [businessStatus, setBusinessStatus] = useState('all')
+  const [businessCategoryId, setBusinessCategoryId] = useState('all')
+  const [categories, setCategories] = useState([])
   // Search algorithm deferred: POI text-search state intentionally disabled.
   // const [poiType, setPoiType] = useState('')
   const [showBusinesses, setShowBusinesses] = useState(true)
@@ -61,10 +64,74 @@ export function MapWorkspace({ token, permissions }) {
     token,
     canRead,
     businessStatus,
+    businessCategoryId,
     viewport,
     // Search algorithm deferred: pass-through search value removed for now.
     // poiType,
   })
+
+  useEffect(() => {
+    if (!token || !canRead) {
+      setCategories([])
+      return
+    }
+
+    let cancelled = false
+
+    const loadCategories = async () => {
+      try {
+        const result = await categoryApi.list(token, { includeInactive: true })
+
+        if (!cancelled) {
+          setCategories(result?.items || [])
+        }
+      } catch {
+        if (!cancelled) {
+          setCategories([])
+        }
+      }
+    }
+
+    loadCategories()
+
+    return () => {
+      cancelled = true
+    }
+  }, [token, canRead])
+
+  useEffect(() => {
+    if (businessCategoryId === 'all') {
+      return
+    }
+
+    const hasCategory = categories.some(
+      (category) => String(category.categoryId) === String(businessCategoryId)
+    )
+
+    if (!hasCategory) {
+      setBusinessCategoryId('all')
+    }
+  }, [categories, businessCategoryId])
+
+  const categoryOptions = useMemo(() => {
+    if (categories.length > 0) {
+      return categories
+    }
+
+    const ids = new Set(
+      (businessesGeoJson?.features || [])
+        .map((feature) => feature?.properties?.categoryId)
+        .filter((value) => Number.isFinite(Number(value)))
+        .map((value) => String(value))
+    )
+
+    return Array.from(ids)
+      .sort((left, right) => Number(left) - Number(right))
+      .map((categoryId) => ({
+        categoryId: Number(categoryId),
+        name: `Category ${categoryId}`,
+      }))
+  }, [categories, businessesGeoJson])
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) {
@@ -76,6 +143,8 @@ export function MapWorkspace({ token, permissions }) {
       style: 'https://demotiles.maplibre.org/style.json',
       center: [90.4048, 23.7700],
       zoom: 9,
+      minZoom: 0,
+      maxZoom: 18,
     })
 
     map.addControl(new maplibregl.NavigationControl(), 'top-right')
@@ -206,7 +275,6 @@ export function MapWorkspace({ token, permissions }) {
 
       updateViewport()
       map.on('moveend', updateViewport)
-      map.on('zoomend', updateViewport)
 
       setMapLoaded(true)
     })
@@ -292,6 +360,9 @@ export function MapWorkspace({ token, permissions }) {
       <MapFilters
         businessStatus={businessStatus}
         onBusinessStatusChange={setBusinessStatus}
+        businessCategoryId={businessCategoryId}
+        onBusinessCategoryChange={setBusinessCategoryId}
+        categories={categoryOptions}
         // Search algorithm deferred: POI text-search props disabled for now.
         // poiType={poiType}
         // onPoiTypeChange={setPoiType}

@@ -267,17 +267,17 @@ const listPoisForMap = async ({
       ),
       clustered AS (
         SELECT
-          FLOOR(latitude / $${params.length + 1}) * $${params.length + 1} + ($${params.length + 1} / 2.0) AS cluster_lat,
-          FLOOR(longitude / $${params.length + 1}) * $${params.length + 1} + ($${params.length + 1} / 2.0) AS cluster_lng,
+          AVG(latitude) AS cluster_lat,
+          AVG(longitude) AS cluster_lng,
           COUNT(*)::int AS cluster_count,
           MIN(poi_id) AS sample_poi_id,
           MAX(COALESCE(last_queried_at, created_at)) AS sample_updated_at
         FROM filtered
-        GROUP BY 1, 2
+        GROUP BY FLOOR(latitude / $${params.length + 1}), FLOOR(longitude / $${params.length + 1})
       )
       SELECT
-        c.cluster_lng AS longitude,
-        c.cluster_lat AS latitude,
+        COALESCE(p.longitude, c.cluster_lng) AS longitude,
+        COALESCE(p.latitude, c.cluster_lat) AS latitude,
         c.cluster_count,
         c.sample_updated_at,
         p.poi_id,

@@ -4,6 +4,7 @@ const express = require('express');
 // Import route modules from feature folders.
 const authRoutes = require('./auth.routes');
 const businessRoutes = require('./business.routes');
+const categoryRoutes = require('./category.routes');
 const docsRoutes = require('./docs.routes');
 const healthRoutes = require('./health.routes');
 const poiRoutes = require('./poi.routes');
@@ -24,6 +25,9 @@ const featureRoutes = [
 
 	// Business CRUD endpoints with RBAC.
 	{ path: '/businesses', handler: businessRoutes },
+
+	// Category list endpoint used by business filters.
+	{ path: '/categories', handler: categoryRoutes },
 
 	// Point-of-interest CRUD and map-friendly data endpoints.
 	{ path: '/pois', handler: poiRoutes },

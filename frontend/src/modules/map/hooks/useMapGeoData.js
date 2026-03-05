@@ -29,7 +29,7 @@ const filterPoiFeatures = (features, poiType) => {
 }
 */
 
-export function useMapGeoData({ token, canRead, businessStatus, viewport }) {
+export function useMapGeoData({ token, canRead, businessStatus, businessCategoryId, viewport }) {
   const [rawBusinesses, setRawBusinesses] = useState(emptyFeatureCollection)
   const [rawPois, setRawPois] = useState(emptyFeatureCollection)
   const [isLoading, setIsLoading] = useState(false)
@@ -59,6 +59,9 @@ export function useMapGeoData({ token, canRead, businessStatus, viewport }) {
     }
 
     let cancelled = false
+    const abortController = new AbortController()
+
+    const normalizedZoom = Math.max(0, Math.min(18, Math.round(Number(viewport?.zoom) || 0)))
 
     const loadSources = async () => {
       setIsLoading(true)
@@ -74,18 +77,19 @@ export function useMapGeoData({ token, canRead, businessStatus, viewport }) {
 
         const businessQuery = {
           ...boundsQuery,
-          zoom: viewport?.zoom,
+          zoom: normalizedZoom,
           status: businessStatus === 'all' ? undefined : businessStatus,
+          categoryId: businessCategoryId === 'all' ? undefined : Number(businessCategoryId),
         }
 
         const poiQuery = {
           ...boundsQuery,
-          zoom: viewport?.zoom,
+          zoom: normalizedZoom,
         }
 
         const [businessesGeo, poisGeo] = await Promise.all([
-          businessApi.listGeoJson(token, businessQuery),
-          poiApi.listGeoJson(token, poiQuery),
+          businessApi.listGeoJson(token, businessQuery, { signal: abortController.signal }),
+          poiApi.listGeoJson(token, poiQuery, { signal: abortController.signal }),
         ])
 
         if (!cancelled) {
@@ -94,22 +98,28 @@ export function useMapGeoData({ token, canRead, businessStatus, viewport }) {
           setLastUpdatedAt(new Date().toISOString())
         }
       } catch (requestError) {
+        if (requestError?.name === 'AbortError') {
+          return
+        }
+
         if (!cancelled) {
           setError(requestError.message)
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && !abortController.signal.aborted) {
           setIsLoading(false)
         }
       }
     }
 
-    loadSources()
+    const loadTimer = setTimeout(loadSources, 180)
 
     return () => {
       cancelled = true
+      clearTimeout(loadTimer)
+      abortController.abort()
     }
-  }, [token, canRead, reloadKey, viewport, businessStatus])
+  }, [token, canRead, reloadKey, viewport, businessStatus, businessCategoryId])
 
   const filteredBusinesses = useMemo(() => {
     return {

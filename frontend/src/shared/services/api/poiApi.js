@@ -17,7 +17,8 @@ const toQueryString = (query = {}) => {
 
 export const poiApi = {
   list: (token, query = {}) => httpClient.get(`/pois${toQueryString(query)}`, { token }),
-  listGeoJson: (token, query = {}) => httpClient.get(`/pois/geojson${toQueryString(query)}`, { token }),
+  listGeoJson: (token, query = {}, options = {}) =>
+    httpClient.get(`/pois/geojson${toQueryString(query)}`, { token, ...options }),
   create: (token, payload) => httpClient.post('/pois', payload, { token }),
   update: (token, poiId, payload) => httpClient.patch(`/pois/${poiId}`, payload, { token }),
   remove: (token, poiId) => httpClient.delete(`/pois/${poiId}`, { token }),

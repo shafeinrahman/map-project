@@ -17,7 +17,8 @@ const toQueryString = (query = {}) => {
 
 export const businessApi = {
   list: (token, query = {}) => httpClient.get(`/businesses${toQueryString(query)}`, { token }),
-  listGeoJson: (token, query = {}) => httpClient.get(`/businesses/geojson${toQueryString(query)}`, { token }),
+  listGeoJson: (token, query = {}, options = {}) =>
+    httpClient.get(`/businesses/geojson${toQueryString(query)}`, { token, ...options }),
   create: (token, payload) => httpClient.post('/businesses', payload, { token }),
   update: (token, businessId, payload) => httpClient.patch(`/businesses/${businessId}`, payload, { token }),
   remove: (token, businessId) => httpClient.delete(`/businesses/${businessId}`, { token }),
