@@ -73,16 +73,16 @@ const env = {
   authRateLimitMax: normalizePositiveInteger(process.env.AUTH_RATE_LIMIT_MAX, 20),
 
   // Bootstrap admin credentials for initial API authentication flow.
-  authAdminEmail: process.env.AUTH_ADMIN_EMAIL || 'admin@internal-maps.local',
+  authAdminEmail: process.env.AUTH_ADMIN_EMAIL || 'super-admin@internal-maps.local',
   authAdminPassword: process.env.AUTH_ADMIN_PASSWORD || 'change-me-admin',
 
-  // Bootstrap editor credentials with write access but no destructive admin actions.
-  authEditorEmail: process.env.AUTH_EDITOR_EMAIL || 'editor@internal-maps.local',
-  authEditorPassword: process.env.AUTH_EDITOR_PASSWORD || 'change-me-editor',
+  // Bootstrap business-admin credentials with write access but no destructive admin actions.
+  authBusinessAdminEmail: process.env.AUTH_BUSINESS_ADMIN_EMAIL || 'business-admin@internal-maps.local',
+  authBusinessAdminPassword: process.env.AUTH_BUSINESS_ADMIN_PASSWORD || 'change-me-business-admin',
 
-  // Bootstrap viewer credentials with read-only access.
-  authViewerEmail: process.env.AUTH_VIEWER_EMAIL || 'viewer@internal-maps.local',
-  authViewerPassword: process.env.AUTH_VIEWER_PASSWORD || 'change-me-viewer',
+  // Bootstrap delivery credentials with read-only access.
+  authDeliveryEmail: process.env.AUTH_DELIVERY_EMAIL || 'delivery@internal-maps.local',
+  authDeliveryPassword: process.env.AUTH_DELIVERY_PASSWORD || 'change-me-delivery',
 };
 
 // Export validated environment configuration.

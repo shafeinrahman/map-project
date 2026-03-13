@@ -37,6 +37,14 @@ export function useMapGeoData({ token, canRead, businessStatus, businessCategory
   const [reloadKey, setReloadKey] = useState(0)
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
 
+  // Bangladesh bounds to restrict queries
+  const bangladeshBounds = {
+    minLat: 21.5,
+    maxLat: 26.2,
+    minLng: 88.0,
+    maxLng: 92.8,
+  }
+
   const reload = () => {
     setReloadKey((current) => current + 1)
   }
@@ -68,11 +76,19 @@ export function useMapGeoData({ token, canRead, businessStatus, businessCategory
       setError('')
 
       try {
+        // Clamp viewport bounds to Bangladesh to prevent loading data outside
+        const clampedBounds = {
+          minLat: Math.max(viewport?.minLat, bangladeshBounds.minLat),
+          maxLat: Math.min(viewport?.maxLat, bangladeshBounds.maxLat),
+          minLng: Math.max(viewport?.minLng, bangladeshBounds.minLng),
+          maxLng: Math.min(viewport?.maxLng, bangladeshBounds.maxLng),
+        }
+
         const boundsQuery = {
-          minLat: viewport?.minLat,
-          maxLat: viewport?.maxLat,
-          minLng: viewport?.minLng,
-          maxLng: viewport?.maxLng,
+          minLat: clampedBounds.minLat,
+          maxLat: clampedBounds.maxLat,
+          minLng: clampedBounds.minLng,
+          maxLng: clampedBounds.maxLng,
         }
 
         const businessQuery = {

@@ -33,43 +33,43 @@ router.use(auditMutation('business'));
 // Read operations are allowed for all known roles.
 router.get(
   '/',
-  authorizeRoles('admin', 'editor', 'viewer'),
+  authorizeRoles('super-admin', 'business-admin', 'delivery'),
   validateQuery(businessListQuerySchema),
   businessController.listBusinesses
 );
 router.get(
   '/geojson',
-  authorizeRoles('admin', 'editor', 'viewer'),
+  authorizeRoles('super-admin', 'business-admin', 'delivery'),
   validateQuery(businessListQuerySchema),
   businessController.listBusinessesGeoJson
 );
 router.get(
   '/:businessId',
   validateParams(businessIdParamsSchema),
-  authorizeRoles('admin', 'editor', 'viewer'),
+  authorizeRoles('super-admin', 'business-admin', 'delivery'),
   businessController.getBusinessById
 );
 
-// Write operations are allowed for editor and admin roles.
+// Write operations are allowed for business-admin and super-admin roles.
 router.post(
   '/',
-  authorizeRoles('admin', 'editor'),
+  authorizeRoles('super-admin', 'business-admin'),
   validateBody(businessCreateBodySchema),
   businessController.createBusiness
 );
 router.patch(
   '/:businessId',
   validateParams(businessIdParamsSchema),
-  authorizeRoles('admin', 'editor'),
+  authorizeRoles('super-admin', 'business-admin'),
   validateBody(businessUpdateBodySchema),
   businessController.updateBusiness
 );
 
-// Delete operation is reserved for admin role.
+// Delete operation is reserved for super-admin role.
 router.delete(
   '/:businessId',
   validateParams(businessIdParamsSchema),
-  authorizeRoles('admin'),
+  authorizeRoles('super-admin'),
   businessController.deleteBusiness
 );
 

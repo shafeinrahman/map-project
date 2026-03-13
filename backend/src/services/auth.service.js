@@ -12,9 +12,9 @@ const authRepository = require('../repositories/auth');
 
 // Built-in role permission matrix for API authorization checks.
 const rolePermissions = {
-  admin: ['business:read', 'business:write', 'business:delete', 'poi:read', 'poi:write', 'poi:delete'],
-  editor: ['business:read', 'business:write', 'poi:read', 'poi:write'],
-  viewer: ['business:read', 'poi:read'],
+  'super-admin': ['business:read', 'business:write', 'business:delete', 'poi:read', 'poi:write', 'poi:delete'],
+  'business-admin': ['business:read', 'business:write', 'poi:read', 'poi:write'],
+  delivery: ['business:read', 'poi:read'],
 };
 
 // Validate login credentials against bootstrap configuration.

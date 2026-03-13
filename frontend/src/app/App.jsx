@@ -8,6 +8,10 @@ import { useAuthContext } from '../modules/auth/context/useAuthContext.js'
 const DashboardPage = lazy(() => import('../modules/dashboard/pages/DashboardPage.jsx'))
 const LoginPage = lazy(() => import('../modules/auth/pages/LoginPage.jsx'))
 const ProfilePage = lazy(() => import('../modules/auth/pages/ProfilePage.jsx'))
+const InboxPage = lazy(() => import('../modules/admin/pages/InboxPage.jsx'))
+const DatabasePage = lazy(() => import('../modules/admin/pages/DatabasePage.jsx'))
+const MapPage = lazy(() => import('../modules/map/pages/MapPage.jsx'))
+const DeliveryPage = lazy(() => import('../modules/delivery/pages/DeliveryPage.jsx'))
 
 function RequireAuth({ children }) {
   const auth = useAuthContext()
@@ -33,8 +37,19 @@ function RedirectIfAuthenticated({ children }) {
   return children
 }
 
+function RequireRole({ roles, children }) {
+  const auth = useAuthContext()
+
+  if (!roles.includes(auth.user?.role)) {
+    return <Navigate to="/" replace />
+  }
+
+  return children
+}
+
 function AppRoutes() {
   const auth = useAuthContext()
+  const isDelivery = auth.user?.role === 'delivery'
 
   return (
     <BrowserRouter>
@@ -42,11 +57,9 @@ function AppRoutes() {
         <Route
           path="/login"
           element={
-            <RedirectIfAuthenticated>
-              <Suspense fallback={<section className="card">Loading login...</section>}>
-                <LoginPage />
-              </Suspense>
-            </RedirectIfAuthenticated>
+            <Suspense fallback={<section className="card">Loading login...</section>}>
+              <LoginPage />
+            </Suspense>
           }
         />
 
@@ -54,11 +67,54 @@ function AppRoutes() {
           path="/"
           element={
             <RequireAuth>
-              <MainLayout auth={auth}>
+              <MainLayout auth={auth} fullBleed={isDelivery}>
                 <Suspense fallback={<section className="card">Loading dashboard...</section>}>
                   <DashboardPage />
                 </Suspense>
               </MainLayout>
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/inbox"
+          element={
+            <RequireAuth>
+              <RequireRole roles={['super-admin']}>
+                <MainLayout auth={auth} fullBleed>
+                  <Suspense fallback={<section className="card">Loading inbox...</section>}>
+                    <InboxPage />
+                  </Suspense>
+                </MainLayout>
+              </RequireRole>
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/map"
+          element={
+            <RequireAuth>
+              <MainLayout auth={auth}>
+                <Suspense fallback={<section className="card">Loading map...</section>}>
+                  <MapPage />
+                </Suspense>
+              </MainLayout>
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/database"
+          element={
+            <RequireAuth>
+              <RequireRole roles={['super-admin', 'business-admin']}>
+                <MainLayout auth={auth}>
+                  <Suspense fallback={<section className="card">Loading database...</section>}>
+                    <DatabasePage />
+                  </Suspense>
+                </MainLayout>
+              </RequireRole>
             </RequireAuth>
           }
         />
@@ -72,6 +128,21 @@ function AppRoutes() {
                   <ProfilePage />
                 </Suspense>
               </MainLayout>
+            </RequireAuth>
+          }
+        />
+
+        <Route
+          path="/delivery"
+          element={
+            <RequireAuth>
+              <RequireRole roles={['delivery']}>
+                <MainLayout auth={auth} fullBleed>
+                  <Suspense fallback={<section className="card">Loading delivery...</section>}>
+                    <DeliveryPage token={auth.token} />
+                  </Suspense>
+                </MainLayout>
+              </RequireRole>
             </RequireAuth>
           }
         />

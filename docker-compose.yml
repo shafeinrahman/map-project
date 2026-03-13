@@ -54,5 +54,26 @@ services:
     ports:
       - "5173:80"
 
+  # Optional: Tileserver GL for Bangladesh-only tiles (advanced setup)
+  # To enable:
+  # 1. Uncomment this service
+  # 2. Run: cd tileserver-data && bash download-tiles.sh
+  # 3. Update MapWorkspace.jsx style URL to: http://localhost:8080/styles/osm-bright/style.json
+  #
+  # tileserver:
+  #   image: maptiler/tileserver-gl:latest
+  #   container_name: internal-maps-tileserver
+  #   ports:
+  #     - "8080:8080"
+  #   volumes:
+  #     - ./tileserver-data:/data
+  #   environment:
+  #     TILESERVER_GL_DATA_DIR: /data
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
 volumes:
   pgdata:

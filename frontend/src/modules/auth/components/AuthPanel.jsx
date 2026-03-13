@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 export function AuthPanel({ auth }) {
-  const [email, setEmail] = useState('admin@internal-maps.local')
+  const [email, setEmail] = useState('super-admin@internal-maps.local')
   const [password, setPassword] = useState('change-me-admin')
 
   const handleSubmit = async (event) => {

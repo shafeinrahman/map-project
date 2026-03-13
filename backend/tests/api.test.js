@@ -32,7 +32,7 @@ test('GET /api/health/readiness returns readiness payload', async () => {
 
 test('POST /api/auth/login rejects invalid credentials', async () => {
   const response = await request(app).post('/api/auth/login').send({
-    email: 'admin@internal-maps.local',
+    email: 'super-admin@internal-maps.local',
     password: 'wrong-password',
   });
 
@@ -42,7 +42,7 @@ test('POST /api/auth/login rejects invalid credentials', async () => {
 
 test('POST /api/auth/login and GET /api/auth/me succeed with valid credentials', async () => {
   const loginResponse = await request(app).post('/api/auth/login').send({
-    email: 'admin@internal-maps.local',
+    email: 'super-admin@internal-maps.local',
     password: 'change-me-admin',
   });
 
@@ -54,13 +54,13 @@ test('POST /api/auth/login and GET /api/auth/me succeed with valid credentials',
     .set('Authorization', `Bearer ${loginResponse.body.accessToken}`);
 
   assert.equal(meResponse.status, 200);
-  assert.equal(meResponse.body.user.role, 'admin');
+  assert.equal(meResponse.body.user.role, 'super-admin');
 });
 
-test('viewer role cannot create business', async () => {
+test('delivery role cannot create business', async () => {
   const loginResponse = await request(app).post('/api/auth/login').send({
-    email: 'viewer@internal-maps.local',
-    password: 'change-me-viewer',
+    email: 'delivery@internal-maps.local',
+    password: 'change-me-delivery',
   });
 
   const createResponse = await request(app)
@@ -158,7 +158,7 @@ test('GET /api/openapi.json marks protected operations with bearer auth', async 
 });
 
 test('GET /api/businesses returns paginated list shape', async () => {
-  const token = await loginAs('admin@internal-maps.local', 'change-me-admin');
+  const token = await loginAs('super-admin@internal-maps.local', 'change-me-admin');
 
   const createResponse = await request(app)
     .post('/api/businesses')
@@ -185,7 +185,7 @@ test('GET /api/businesses returns paginated list shape', async () => {
 });
 
 test('GET /api/pois/geojson returns feature collection shape', async () => {
-  const token = await loginAs('admin@internal-maps.local', 'change-me-admin');
+  const token = await loginAs('super-admin@internal-maps.local', 'change-me-admin');
 
   const createResponse = await request(app)
     .post('/api/pois')

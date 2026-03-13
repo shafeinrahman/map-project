@@ -33,7 +33,7 @@ router.use(auditMutation('poi'));
 // List POIs with optional filters and pagination.
 router.get(
 	'/',
-	authorizeRoles('admin', 'editor', 'viewer'),
+	authorizeRoles('super-admin', 'business-admin', 'delivery'),
 	validateQuery(poiListQuerySchema),
 	poiController.listPois
 );
@@ -41,7 +41,7 @@ router.get(
 // Return POIs in GeoJSON format for map layers.
 router.get(
 	'/geojson',
-	authorizeRoles('admin', 'editor', 'viewer'),
+	authorizeRoles('super-admin', 'business-admin', 'delivery'),
 	validateQuery(poiListQuerySchema),
 	poiController.listPoisGeoJson
 );
@@ -50,14 +50,14 @@ router.get(
 router.get(
 	'/:poiId',
 	validateParams(poiIdParamsSchema),
-	authorizeRoles('admin', 'editor', 'viewer'),
+	authorizeRoles('super-admin', 'business-admin', 'delivery'),
 	poiController.getPoiById
 );
 
 // Create one POI.
 router.post(
 	'/',
-	authorizeRoles('admin', 'editor'),
+	authorizeRoles('super-admin', 'business-admin'),
 	validateBody(poiCreateBodySchema),
 	poiController.createPoi
 );
@@ -66,7 +66,7 @@ router.post(
 router.patch(
 	'/:poiId',
 	validateParams(poiIdParamsSchema),
-	authorizeRoles('admin', 'editor'),
+	authorizeRoles('super-admin', 'business-admin'),
 	validateBody(poiUpdateBodySchema),
 	poiController.updatePoi
 );
@@ -75,7 +75,7 @@ router.patch(
 router.delete(
 	'/:poiId',
 	validateParams(poiIdParamsSchema),
-	authorizeRoles('admin'),
+	authorizeRoles('super-admin'),
 	poiController.deletePoi
 );
 

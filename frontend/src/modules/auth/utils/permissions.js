@@ -1,7 +1,7 @@
 const roleSets = {
-  read: new Set(['admin', 'editor', 'viewer']),
-  write: new Set(['admin', 'editor']),
-  delete: new Set(['admin']),
+  read: new Set(['super-admin', 'business-admin', 'delivery']),
+  write: new Set(['super-admin', 'business-admin']),
+  delete: new Set(['super-admin']),
 }
 
 export function getRoleCapabilities(user) {
